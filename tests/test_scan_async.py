@@ -144,32 +144,25 @@ def test_scan_async_signal_handler_fallback(monkeypatch):
     fake_loop = FakeLoop()
     monkeypatch.setattr(main.asyncio, "get_running_loop", lambda: fake_loop)
 
-    original_handlers = {}
-    for sig in (main.signal.SIGINT, main.signal.SIGTERM):
-        try:
-            original_handlers[sig] = main.signal.getsignal(sig)
-        except (AttributeError, ValueError):
-            continue
-
     manual_calls = []
-    real_signal = main.signal.signal
 
     def fake_signal(sig, handler):
         manual_calls.append((sig, handler))
-        return real_signal(sig, handler)
+        handler_name = getattr(handler, "__name__", "")
+        if handler_name == "_manual_stop_handler":
+            if sig == main.signal.SIGINT:
+                handler(sig, None)
+                return object()
+            raise ValueError("unsupported signal")
+        raise ValueError("restore failed")
 
     monkeypatch.setattr(main.signal, "signal", fake_signal)
+    monkeypatch.setattr(main.signal, "getsignal", lambda sig: f"prev-{sig}")
 
-    try:
-        asyncio.run(main.scan_async(params))
-    finally:
-        for sig, handler in original_handlers.items():
-            try:
-                real_signal(sig, handler)
-            except (AttributeError, ValueError):
-                continue
+    asyncio.run(main.scan_async(params))
 
     assert manual_calls, "Fallback signal handler should be registered"
+    assert any(call[0] == main.signal.SIGINT for call in manual_calls)
 
 
 def test_scan_async_processes_full_pool(monkeypatch):
