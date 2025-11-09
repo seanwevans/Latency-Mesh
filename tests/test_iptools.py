@@ -1,3 +1,4 @@
+import ipaddress
 from unittest import mock
 
 import pytest
@@ -17,18 +18,26 @@ class TestIpAngle:
 class TestGenerateLocalPool:
     def test_skips_invalid_addresses_and_generates_hosts(self):
         seed_ips = ["not-an-ip", "192.0.2.1"]
-        with mock.patch("latencymesh.iptools.random.shuffle", lambda seq: None):
-            pool = iptools.generate_local_pool(
-                seed_ips, prefix_len=30, max_per_seed=None
-            )
+        pool = iptools.generate_local_pool(seed_ips, prefix_len=30, max_per_seed=None)
         # /30 network should provide two host addresses
-        assert pool == [
+        assert set(pool) == {
             iptools.IPAddress("192.0.2.1"),
             iptools.IPAddress("192.0.2.2"),
-        ]
+        }
 
     def test_limits_addresses_per_seed(self):
         seed_ips = ["198.51.100.5"]
+        pool_first = iptools.generate_local_pool(
+            seed_ips, prefix_len=24, max_per_seed=1
+        )
+        pool_second = iptools.generate_local_pool(
+            seed_ips, prefix_len=24, max_per_seed=1
+        )
+
+        assert pool_first == pool_second
+        assert len(pool_first) == 1
+        network = ipaddress.ip_network("198.51.100.5/24", strict=False)
+        assert pool_first[0] in {iptools.IPAddress(str(a)) for a in network}
 
         with mock.patch("latencymesh.iptools.random.shuffle", lambda seq: None):
             pool = iptools.generate_local_pool(seed_ips, prefix_len=24, max_per_seed=1)

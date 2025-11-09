@@ -4,6 +4,10 @@ from typing import Iterable, List, NewType, Optional, Union
 IPAddress = NewType("IPAddress", str)
 
 
+def _deterministic_seed(value: str) -> int:
+    return int.from_bytes(hashlib.sha256(value.encode("utf-8")).digest(), "big")
+
+
 def ip_angle(ip: IPAddress) -> float:
     h = int(hashlib.sha1(ip.encode()).hexdigest(), 16)
     return (h % 10000) / 10000 * 2 * math.pi
@@ -27,9 +31,13 @@ def generate_local_pool(
         except Exception:
             continue
         net = ipaddress.ip_network(f"{ip}/{prefix_len}", strict=False)
-        addrs: Iterable[Address] = _iter_addresses(net)
-        if max_per_seed is not None:
-            addrs = itertools.islice(addrs, max_per_seed)
-        pool.extend(IPAddress(str(a)) for a in addrs)
-    random.shuffle(pool)
+        addrs = list(net.hosts()) if net.num_addresses > 2 else list(net)
+        if max_per_seed and len(addrs) > max_per_seed:
+            seed = _deterministic_seed(s)
+            sample_rng = random.Random(seed)
+            addrs = sample_rng.sample(addrs, max_per_seed)
+        pool.extend([IPAddress(str(a)) for a in addrs])
+    shuffle_seed_material = "|".join(seed_ips) + f"|{prefix_len}|{max_per_seed}"
+    shuffle_rng = random.Random(_deterministic_seed(shuffle_seed_material))
+    shuffle_rng.shuffle(pool)
     return pool
