@@ -6,6 +6,8 @@
 It constructs a **weighted mesh** where each edge corresponds to a hop and its latency.
 Over time, it reveals the structure of your network neighborhood.
 
+![output svg](./sample.svg)
+
 ## 🚀 Usage
 
 Install the project in an isolated Python environment (Python 3.11+ is required) and invoke the command line interface via the `lm` entry point:
