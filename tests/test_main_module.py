@@ -1,6 +1,5 @@
 import asyncio
 import csv
-import csv
 import os
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -136,6 +135,53 @@ def test_merge_graphs_ignores_missing_metrics(tmp_path, monkeypatch):
     assert "last_seen" not in second_node
 
 
+def test_file_operations_raise_for_missing_inputs(tmp_path):
+    missing = tmp_path / "missing.json"
+    with pytest.raises(FileNotFoundError):
+        main.render_graph(str(missing), "radial", None)
+    with pytest.raises(FileNotFoundError):
+        main.export_graph(str(missing), fmt="csv", output=None)
+    with pytest.raises(FileNotFoundError):
+        main.graph_stats(str(missing))
+    with pytest.raises(FileNotFoundError):
+        main.prune_graph(str(missing), older_than=None, min_latency=None, output=None)
+    with pytest.raises(FileNotFoundError):
+        main.merge_graphs([str(missing)], output=str(tmp_path / "out.json"))
+
+
+def test_prune_handles_invalid_last_seen(tmp_path):
+    graph = nx.Graph()
+    graph.add_node("3.3.3.3", rtt=30.0, last_seen="invalid")
+    graph.add_node("4.4.4.4", rtt=5.0)
+    save_graph(graph, str(tmp_path / "base"))
+
+    pruned_path = main.prune_graph(
+        str(tmp_path / "base.json"), older_than="1s", min_latency=None, output=str(tmp_path / "pruned")
+    )
+
+    pruned_graph = load_graph(pruned_path)
+    assert "3.3.3.3" in pruned_graph
+    assert "4.4.4.4" not in pruned_graph
+
+
+def test_merge_graphs_merges_edge_weights(tmp_path):
+    graph_a = nx.Graph()
+    graph_a.add_edge("1.1.1.1", "2.2.2.2", weight=3.0)
+    save_graph(graph_a, str(tmp_path / "graph_a"))
+
+    graph_b = nx.Graph()
+    graph_b.add_edge("1.1.1.1", "2.2.2.2", weight=1.0)
+    save_graph(graph_b, str(tmp_path / "graph_b"))
+
+    merged_path = main.merge_graphs(
+        [str(tmp_path / "graph_a.json"), str(tmp_path / "graph_b.json")],
+        str(tmp_path / "merged"),
+    )
+
+    merged_graph = load_graph(merged_path)
+    assert merged_graph.edges["1.1.1.1", "2.2.2.2"]["weight"] == pytest.approx(1.0)
+
+
 def test_detect_gateway_and_auto_seeds(monkeypatch):
     route_content = "Iface\tDestination\tGateway\neth0\t00000000\t0101A8C0\n"
 
@@ -155,10 +201,25 @@ def test_detect_gateway_and_auto_seeds(monkeypatch):
     monkeypatch.setattr("builtins.open", raise_not_found)
     assert main.detect_default_gateway() is None
 
+    original_detect = main.detect_default_gateway
     monkeypatch.setattr(main, "detect_default_gateway", lambda: "10.0.0.1")
     seeds = main.auto_seeds()
     assert seeds[0] == "10.0.0.1"
     assert sorted(seeds[1:]) == sorted(main.DEFAULT_SEEDS)
+
+    monkeypatch.setattr(main, "detect_default_gateway", original_detect)
+
+    route_without_default = "Iface\tDestination\tGateway\neth0\t0001\t00000000\n"
+
+    class FakeRouteFileNoDefault:
+        def __enter__(self):
+            return iter(route_without_default.splitlines())
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("builtins.open", lambda *_a, **_k: FakeRouteFileNoDefault())
+    assert main.detect_default_gateway() is None
 
 
 def test_serve_directory(monkeypatch, tmp_path):
@@ -179,6 +240,11 @@ def test_serve_directory(monkeypatch, tmp_path):
     monkeypatch.setattr(main, "SimpleHTTPRequestHandler", object)
     main.serve_directory(str(tmp_path), 8000)
     assert calls == ["init", "serve", "close"]
+
+
+def test_serve_directory_missing(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        main.serve_directory(str(tmp_path / "nope"), 8000)
 
 
 @pytest.mark.parametrize(
@@ -240,8 +306,16 @@ def test_main_scan_and_errors(monkeypatch, capsys):
     monkeypatch.setattr(main.asyncio, "run", fake_run)
     main.main(["scan"])
     assert hasattr(params, "ran")
+    capsys.readouterr()
 
-    # Simulate an unknown command raising ValueError and ensure exit code is 1.
+    def raise_interrupt(_coro):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(main.asyncio, "run", raise_interrupt)
+    main.main(["scan"])
+    assert "[interrupt] exiting…" in capsys.readouterr().out
+
+    # Simulate an unknown command raising ValueError and ensure it propagates.
     params.command = "unknown"
     monkeypatch.setattr(main, "parse_args", lambda _argv: params)
     with pytest.raises(ValueError):
@@ -260,3 +334,24 @@ def test_main_seed_command(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert "2.2.2.2" in captured.out
     assert "1.1.1.1" in captured.out
+
+
+def test_main_reports_file_not_found(monkeypatch, capsys):
+    params = SimpleNamespace(
+        command="show",
+        graph="missing.json",
+        layout="radial",
+        output=None,
+    )
+    monkeypatch.setattr(main, "parse_args", lambda _argv: params)
+
+    def raise_missing(*_a, **_k):
+        raise FileNotFoundError("missing graph")
+
+    monkeypatch.setattr(main, "render_graph", raise_missing)
+
+    with pytest.raises(SystemExit) as exc:
+        main.main(["show"])
+
+    assert exc.value.code == 1
+    assert "[error] missing graph" in capsys.readouterr().out
