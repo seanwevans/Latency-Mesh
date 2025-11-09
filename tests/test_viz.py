@@ -33,3 +33,15 @@ def test_planar_layout_falls_back_to_spring(monkeypatch):
 
     positions = viz._layout_positions(graph, "planar")
     assert set(positions) == set(graph.nodes())
+
+
+def test_draw_map_creates_parent_directory(tmp_path):
+    graph = nx.Graph()
+    graph.add_node("1.1.1.1", rtt=5.0)
+
+    target = tmp_path / "nested" / "subdir" / "map.png"
+    assert not target.parent.exists()
+
+    viz.draw_map(graph, None, None, output_path=str(target))
+
+    assert target.exists()

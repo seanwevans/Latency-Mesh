@@ -49,13 +49,15 @@ def test_render_graph_and_export(tmp_path):
 
 
 def test_graph_stats_and_parsing(tmp_path):
-    make_graph(tmp_path)
+    graph = make_graph(tmp_path)
+    graph.add_node("2.2.2.2", rtt=0.0, last_seen=datetime.utcnow().isoformat())
+    save_graph(graph, str(tmp_path / "graph"))
     stats = main.graph_stats(str(tmp_path / "graph.json"))
-    assert stats["nodes"] == 2
+    assert stats["nodes"] == 3
     assert stats["edges"] == 1
-    assert stats["components"] == 1
-    assert stats["avg_degree"] == pytest.approx(1.0)
-    assert stats["avg_latency"] == pytest.approx(17.5)
+    assert stats["components"] == 2
+    assert stats["avg_degree"] == pytest.approx(2 / 3)
+    assert stats["avg_latency"] == pytest.approx(35 / 3)
 
     assert main.parse_duration("5m") == timedelta(minutes=5)
     assert main.parse_duration("10") == timedelta(seconds=10)
@@ -93,6 +95,37 @@ def test_prune_and_merge(tmp_path):
     assert merged == str(tmp_path / "merged.json")
     merged_graph = load_graph(merged)
     assert sorted(merged_graph.nodes()) == ["1.1.1.1", "9.9.9.9"]
+
+
+def test_merge_graphs_ignores_missing_metrics(tmp_path, monkeypatch):
+    timestamp = datetime.utcnow().isoformat()
+
+    graph_a = nx.Graph()
+    graph_a.add_node("1.1.1.1", rtt=10.0, last_seen=timestamp)
+    graph_a.add_node("2.2.2.2")
+    save_graph(graph_a, str(tmp_path / "graph_a"))
+
+    monkeypatch.setattr("latencymesh.io_graph.nx.write_gexf", lambda *_a, **_k: None)
+
+    graph_b = nx.Graph()
+    graph_b.add_node("1.1.1.1", rtt=None, last_seen=None)
+    graph_b.add_node("2.2.2.2", rtt=15.0)
+    save_graph(graph_b, str(tmp_path / "graph_b"))
+
+    merged_path = main.merge_graphs(
+        [str(tmp_path / "graph_a.json"), str(tmp_path / "graph_b.json")],
+        str(tmp_path / "merged_missing.json"),
+    )
+
+    merged_graph = load_graph(merged_path)
+
+    first_node = merged_graph.nodes["1.1.1.1"]
+    assert first_node["rtt"] == pytest.approx(10.0)
+    assert first_node["last_seen"] == timestamp
+
+    second_node = merged_graph.nodes["2.2.2.2"]
+    assert second_node["rtt"] == pytest.approx(15.0)
+    assert "last_seen" not in second_node
 
 
 def test_detect_gateway_and_auto_seeds(monkeypatch):
