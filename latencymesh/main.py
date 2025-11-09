@@ -168,9 +168,7 @@ def graph_stats(graph_path: str) -> dict:
     components = nx.number_connected_components(G) if num_nodes else 0
     avg_degree = sum(dict(G.degree()).values()) / num_nodes if num_nodes else 0
     latencies = [
-        data.get("rtt")
-        for _, data in G.nodes(data=True)
-        if data.get("rtt") is not None
+        data.get("rtt") for _, data in G.nodes(data=True) if data.get("rtt") is not None
     ]
     avg_latency = sum(latencies) / len(latencies) if latencies else 0
     return {
