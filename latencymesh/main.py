@@ -250,11 +250,13 @@ def merge_graphs(graphs: Iterable[str], output: str) -> str:
             if merged.has_node(node):
                 existing = merged.nodes[node]
                 if "rtt" in data:
-                    existing["rtt"] = min(existing.get("rtt", data["rtt"]), data["rtt"])
+                    rtt_values = [value for value in (existing.get("rtt"), data.get("rtt")) if value is not None]
+                    if rtt_values:
+                        existing["rtt"] = min(rtt_values)
                 if "last_seen" in data:
-                    existing["last_seen"] = max(
-                        existing.get("last_seen", ""), data["last_seen"]
-                    )
+                    seen_values = [value for value in (existing.get("last_seen"), data.get("last_seen")) if value]
+                    if seen_values:
+                        existing["last_seen"] = max(seen_values)
             else:
                 merged.add_node(node, **data)
         for u, v, data in G.edges(data=True):
