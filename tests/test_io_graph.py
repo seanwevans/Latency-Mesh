@@ -64,3 +64,21 @@ def test_save_graph_creates_nested_directories(tmp_path):
     with open(json_file, encoding="utf-8") as fh:
         data = json.load(fh)
     assert data["nodes"], "JSON file should contain node data"
+
+
+def test_load_graph_missing_returns_empty(tmp_path):
+    missing = tmp_path / "does-not-exist.json"
+    graph = load_graph(str(missing))
+    assert graph.number_of_nodes() == 0
+
+
+def test_save_graph_trims_json_suffix(tmp_path):
+    graph = nx.Graph()
+    graph.add_node("solo")
+
+    target = tmp_path / "graph.json"
+    save_graph(graph, str(target))
+
+    assert target.exists()
+    # A matching GEXF file should be generated alongside the JSON output.
+    assert target.with_suffix(".gexf").exists()

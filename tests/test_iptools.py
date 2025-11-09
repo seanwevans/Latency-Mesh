@@ -57,3 +57,16 @@ class TestGenerateLocalPool:
             iptools.IPAddress("2001:db8::4"),
             iptools.IPAddress("2001:db8::5"),
         ]
+
+    def test_includes_all_addresses_for_small_networks(self):
+        seed_ips = ["203.0.113.9"]
+
+        with mock.patch("latencymesh.iptools.random.shuffle", lambda seq: None):
+            pool = iptools.generate_local_pool(seed_ips, prefix_len=31, max_per_seed=None)
+
+        # /31 networks only expose two addresses; ensure both are returned without
+        # relying on the hosts() helper.
+        assert pool == [
+            iptools.IPAddress("203.0.113.8"),
+            iptools.IPAddress("203.0.113.9"),
+        ]
