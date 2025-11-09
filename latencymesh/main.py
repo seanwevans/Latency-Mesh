@@ -164,6 +164,8 @@ def graph_stats(graph_path: str) -> dict:
 def parse_duration(expr: str) -> timedelta:
     units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
     expr = expr.strip().lower()
+    if not expr:
+        raise ValueError("Duration expression cannot be empty")
     value = expr[:-1]
     unit = expr[-1]
     if unit not in units:

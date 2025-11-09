@@ -63,6 +63,11 @@ def test_graph_stats_and_parsing(tmp_path):
         main.parse_duration("not-a-duration")
 
 
+def test_parse_duration_empty_string():
+    with pytest.raises(ValueError):
+        main.parse_duration("   ")
+
+
 def test_prune_and_merge(tmp_path):
     graph = make_graph(tmp_path)
 
