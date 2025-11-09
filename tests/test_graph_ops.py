@@ -13,11 +13,13 @@ def test_add_trace_updates_graph():
 
     assert graph.has_edge("1.1.1.1", "2.2.2.2")
     assert graph.nodes["2.2.2.2"]["rtt"] == 20.0
+    assert graph.edges["1.1.1.1", "2.2.2.2"]["weight"] == 10.0
 
-    # Running the same trace with better RTT updates the stored value.
-    improved_hops = [("2.2.2.2", 15.0)]
+    # Running the same trace with better RTT updates the stored value and edge weight.
+    improved_hops = [("1.1.1.1", 10.0), ("2.2.2.2", 12.0)]
     add_trace(graph, improved_hops)
-    assert graph.nodes["2.2.2.2"]["rtt"] == 15.0
+    assert graph.nodes["2.2.2.2"]["rtt"] == 12.0
+    assert graph.edges["1.1.1.1", "2.2.2.2"]["weight"] == 2.0
 
 
 def test_compute_positions_returns_cartesian_coordinates():
