@@ -77,9 +77,15 @@ def test_prune_and_merge(tmp_path):
     graph.nodes["8.8.8.8"]["last_seen"] = old_time
     save_graph(graph, str(tmp_path / "graph"))
 
+    pruned_base = tmp_path / "pruned"
     pruned_path = main.prune_graph(
-        str(tmp_path / "graph.json"), older_than="1d", min_latency=20.0, output=None
+        str(tmp_path / "graph.json"),
+        older_than="1d",
+        min_latency=20.0,
+        output=str(pruned_base),
     )
+    assert pruned_path == str(pruned_base.with_suffix(".json"))
+    assert os.path.exists(pruned_path)
     pruned = load_graph(pruned_path)
     assert list(pruned.nodes()) == []
 
@@ -88,11 +94,13 @@ def test_prune_and_merge(tmp_path):
     graph_b.add_edge("1.1.1.1", "9.9.9.9", weight=7.0)
     save_graph(graph_b, str(tmp_path / "graph_b"))
 
+    merged_base = tmp_path / "merged"
     merged = main.merge_graphs(
-        [str(tmp_path / "graph.json"), str(tmp_path / "graph_b.json")],
-        str(tmp_path / "merged.json"),
+        [pruned_path, str(tmp_path / "graph_b.json")],
+        str(merged_base),
     )
-    assert merged == str(tmp_path / "merged.json")
+    assert merged == str(merged_base.with_suffix(".json"))
+    assert os.path.exists(merged)
     merged_graph = load_graph(merged)
     assert sorted(merged_graph.nodes()) == ["1.1.1.1", "9.9.9.9"]
 

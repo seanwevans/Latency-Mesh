@@ -238,7 +238,7 @@ def prune_graph(
 
     target = output or resolved
     save_graph(G, os.path.splitext(target)[0])
-    return target
+    return resolve_graph_path(target)
 
 
 def merge_graphs(graphs: Iterable[str], output: str) -> str:
@@ -280,7 +280,7 @@ def merge_graphs(graphs: Iterable[str], output: str) -> str:
                 merged.add_edge(u, v, **data)
 
     save_graph(merged, os.path.splitext(output)[0])
-    return output
+    return resolve_graph_path(output)
 
 
 def detect_default_gateway() -> Optional[str]:
