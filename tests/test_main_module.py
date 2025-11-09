@@ -97,6 +97,37 @@ def test_prune_and_merge(tmp_path):
     assert sorted(merged_graph.nodes()) == ["1.1.1.1", "9.9.9.9"]
 
 
+def test_merge_graphs_ignores_missing_metrics(tmp_path, monkeypatch):
+    timestamp = datetime.utcnow().isoformat()
+
+    graph_a = nx.Graph()
+    graph_a.add_node("1.1.1.1", rtt=10.0, last_seen=timestamp)
+    graph_a.add_node("2.2.2.2")
+    save_graph(graph_a, str(tmp_path / "graph_a"))
+
+    monkeypatch.setattr("latencymesh.io_graph.nx.write_gexf", lambda *_a, **_k: None)
+
+    graph_b = nx.Graph()
+    graph_b.add_node("1.1.1.1", rtt=None, last_seen=None)
+    graph_b.add_node("2.2.2.2", rtt=15.0)
+    save_graph(graph_b, str(tmp_path / "graph_b"))
+
+    merged_path = main.merge_graphs(
+        [str(tmp_path / "graph_a.json"), str(tmp_path / "graph_b.json")],
+        str(tmp_path / "merged_missing.json"),
+    )
+
+    merged_graph = load_graph(merged_path)
+
+    first_node = merged_graph.nodes["1.1.1.1"]
+    assert first_node["rtt"] == pytest.approx(10.0)
+    assert first_node["last_seen"] == timestamp
+
+    second_node = merged_graph.nodes["2.2.2.2"]
+    assert second_node["rtt"] == pytest.approx(15.0)
+    assert "last_seen" not in second_node
+
+
 def test_detect_gateway_and_auto_seeds(monkeypatch):
     route_content = "Iface\tDestination\tGateway\neth0\t00000000\t0101A8C0\n"
 
