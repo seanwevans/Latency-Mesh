@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 import matplotlib.pyplot as plt
@@ -44,5 +45,7 @@ def draw_map(
     plt.tight_layout()
     target = output_path or (f"{save_base}.svg" if save_base else None)
     if target:
-        plt.savefig(target)
+        target_path = Path(target).expanduser().resolve()
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(target_path)
     plt.pause(0.001)
