@@ -31,6 +31,7 @@ jobs:
           commit_message: "chore: apply black formatting"
 
   tests:
+    needs: format
     name: Tests
     runs-on: ubuntu-latest
     steps:
@@ -51,6 +52,7 @@ jobs:
           path: coverage.xml
 
   build:
+    needs: format
     name: Build
     runs-on: ubuntu-latest
     steps:
