@@ -84,8 +84,20 @@ async def scan_async(params):
     )
 
     loop = asyncio.get_running_loop()
+    manual_signal_handlers = []
+
+    def _manual_stop_handler(signum, frame):
+        stop_event.set()
+
     for s in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(s, lambda s=s: stop_event.set())
+        try:
+            loop.add_signal_handler(s, lambda s=s: stop_event.set())
+        except (NotImplementedError, AttributeError):
+            try:
+                manual_signal_handlers.append((s, signal.getsignal(s)))
+                signal.signal(s, _manual_stop_handler)
+            except (ValueError, AttributeError):
+                continue
 
     logger.info(
         f"[start] mapping local neighborhood — {params.workers} workers, prefix /{params.prefix}"
@@ -94,6 +106,11 @@ async def scan_async(params):
     try:
         await stop_event.wait()
     finally:
+        for sig, previous in manual_signal_handlers:
+            try:
+                signal.signal(sig, previous)
+            except (ValueError, AttributeError):
+                pass
         for t in [*workers, ui_task]:
             t.cancel()
         await asyncio.gather(*workers, ui_task, return_exceptions=True)
