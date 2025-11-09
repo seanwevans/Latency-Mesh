@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "latencymesh"
+version = "0.1.0"
+description = "Tools for mapping Internet topology via asynchronous traceroutes"
+readme = "README.md"
+authors = [
+  { name = "LatencyMesh Contributors" }
+]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+test = [
+  "pytest>=7.0",
+]
+dev = [
+  "black>=24.0",
+  "build>=1.0",
+  "pytest>=7.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["latencymesh", "latencymesh.*"]
