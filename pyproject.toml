@@ -10,7 +10,7 @@ readme = "README.md"
 authors = [
   { name = "LatencyMesh Contributors" }
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
   "matplotlib>=3.8",
   "networkx>=3.2",
