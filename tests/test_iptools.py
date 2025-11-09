@@ -1,4 +1,3 @@
-import ipaddress
 from unittest import mock
 
 import pytest
@@ -30,12 +29,22 @@ class TestGenerateLocalPool:
 
     def test_limits_addresses_per_seed(self):
         seed_ips = ["198.51.100.5"]
-        fake_sample = [ipaddress.ip_address("198.51.100.5")]
 
-        with (
-            mock.patch("latencymesh.iptools.random.sample", return_value=fake_sample),
-            mock.patch("latencymesh.iptools.random.shuffle", lambda seq: None),
-        ):
+        with mock.patch("latencymesh.iptools.random.shuffle", lambda seq: None):
             pool = iptools.generate_local_pool(seed_ips, prefix_len=24, max_per_seed=1)
 
-        assert pool == [iptools.IPAddress("198.51.100.5")]
+        assert pool == [iptools.IPAddress("198.51.100.1")]
+
+    def test_handles_large_ipv6_prefix_quickly(self):
+        seed_ips = ["2001:db8::1"]
+
+        with mock.patch("latencymesh.iptools.random.shuffle", lambda seq: None):
+            pool = iptools.generate_local_pool(seed_ips, prefix_len=64, max_per_seed=5)
+
+        assert pool == [
+            iptools.IPAddress("2001:db8::1"),
+            iptools.IPAddress("2001:db8::2"),
+            iptools.IPAddress("2001:db8::3"),
+            iptools.IPAddress("2001:db8::4"),
+            iptools.IPAddress("2001:db8::5"),
+        ]
