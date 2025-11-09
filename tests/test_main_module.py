@@ -156,7 +156,10 @@ def test_prune_handles_invalid_last_seen(tmp_path):
     save_graph(graph, str(tmp_path / "base"))
 
     pruned_path = main.prune_graph(
-        str(tmp_path / "base.json"), older_than="1s", min_latency=None, output=str(tmp_path / "pruned")
+        str(tmp_path / "base.json"),
+        older_than="1s",
+        min_latency=None,
+        output=str(tmp_path / "pruned"),
     )
 
     pruned_graph = load_graph(pruned_path)
