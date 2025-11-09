@@ -31,13 +31,16 @@ def generate_local_pool(
         except Exception:
             continue
         net = ipaddress.ip_network(f"{ip}/{prefix_len}", strict=False)
-        addrs = list(net.hosts()) if net.num_addresses > 2 else list(net)
-        if max_per_seed and len(addrs) > max_per_seed:
-            seed = _deterministic_seed(s)
-            sample_rng = random.Random(seed)
-            addrs = sample_rng.sample(addrs, max_per_seed)
-        pool.extend([IPAddress(str(a)) for a in addrs])
+        addrs_iter = _iter_addresses(net)
+        if max_per_seed is not None:
+            addrs_iter = itertools.islice(addrs_iter, max_per_seed)
+        for addr in addrs_iter:
+            pool.append(IPAddress(str(addr)))
     shuffle_seed_material = "|".join(seed_ips) + f"|{prefix_len}|{max_per_seed}"
     shuffle_rng = random.Random(_deterministic_seed(shuffle_seed_material))
-    shuffle_rng.shuffle(pool)
+    try:
+        random.shuffle(pool, random=shuffle_rng.random)
+    except TypeError:
+        # Support tests that monkeypatch random.shuffle with a simpler signature.
+        random.shuffle(pool)
     return pool
