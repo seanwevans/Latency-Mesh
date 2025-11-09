@@ -1,4 +1,4 @@
-import asyncio, random, re
+import asyncio, random, re, ipaddress
 from .graph_ops import add_trace
 
 
@@ -23,9 +23,14 @@ async def run_traceroute(host, timeout, max_hops, logger):
         m = re.match(r"\s*\d+\s+(\S+)\s+([\d\.]+)\s+ms", raw.decode().strip())
         if m:
             ip, latency = m.groups()
-            if ip != "*" and re.match(r"^\d+\.\d+\.\d+\.\d+$", ip):
-                logger.debug(f"[trace:{host}] {ip} {latency}ms")
-                hops.append((ip, float(latency)))
+            if ip == "*":
+                continue
+            try:
+                ipaddress.ip_address(ip)
+            except ValueError:
+                continue
+            logger.debug(f"[trace:{host}] {ip} {latency}ms")
+            hops.append((ip, float(latency)))
     await proc.wait()
     return hops
 
