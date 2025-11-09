@@ -1,10 +1,25 @@
-import matplotlib.pyplot as plt, networkx as nx
 from datetime import datetime
+from typing import Optional
+
+import matplotlib.pyplot as plt
+import networkx as nx
+
 from .graph_ops import compute_positions
 
 
-def draw_map(G, save_base, ax):
-    pos = compute_positions(G)
+def _layout_positions(G: nx.Graph, layout: str):
+    if layout == "spring":
+        return nx.spring_layout(G, seed=42)
+    if layout == "planar":
+        try:
+            return nx.planar_layout(G)
+        except nx.NetworkXException:
+            return nx.spring_layout(G, seed=42)
+    return compute_positions(G)
+
+
+def draw_map(G, save_base, ax, *, layout: str = "radial", output_path: Optional[str] = None):
+    pos = _layout_positions(G, layout)
     if ax is None:
         _, ax = plt.subplots(figsize=(8, 8))
     ax.clear()
@@ -25,5 +40,7 @@ def draw_map(G, save_base, ax):
         va="bottom",
     )
     plt.tight_layout()
-    plt.savefig(f"{save_base}.svg", format="svg")
+    target = output_path or (f"{save_base}.svg" if save_base else None)
+    if target:
+        plt.savefig(target)
     plt.pause(0.001)

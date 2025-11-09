@@ -1,5 +1,9 @@
-import math, networkx as nx
+import math
+from datetime import datetime
 from typing import Dict, Tuple
+
+import networkx as nx
+
 from .iptools import IPAddress, ip_angle
 
 Hop = Tuple[IPAddress, float]
@@ -7,11 +11,14 @@ Position = Dict[IPAddress, Tuple[float, float]]
 
 
 def add_trace(G: nx.Graph, hops: list[Hop]) -> None:
+    timestamp = datetime.utcnow().isoformat(timespec="seconds")
     for i, (ip, rtt) in enumerate(hops):
         if not G.has_node(ip):
-            G.add_node(ip, rtt=rtt)
+            G.add_node(ip, rtt=rtt, last_seen=timestamp)
         else:
-            G.nodes[ip]["rtt"] = min(G.nodes[ip].get("rtt", rtt), rtt)
+            node = G.nodes[ip]
+            node["rtt"] = min(node.get("rtt", rtt), rtt)
+            node["last_seen"] = timestamp
         if i > 0:
             prev_ip, prev_rtt = hops[i - 1]
             delta = max(rtt - prev_rtt, 0.1)
