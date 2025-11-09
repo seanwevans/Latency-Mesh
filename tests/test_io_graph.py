@@ -46,3 +46,21 @@ def test_load_and_save_graph_roundtrip(tmp_path):
     with open(tmp_path / "internet_map.json", encoding="utf-8") as fh:
         data = json.load(fh)
     assert data["directed"] is False
+
+
+def test_save_graph_creates_nested_directories(tmp_path):
+    graph = nx.Graph()
+    graph.add_node("node")
+
+    nested_base = tmp_path / "nested" / "path" / "graph"
+    save_graph(graph, str(nested_base))
+
+    json_file = nested_base.with_suffix(".json")
+    gexf_file = nested_base.with_suffix(".gexf")
+
+    assert json_file.exists()
+    assert gexf_file.exists()
+
+    with open(json_file, encoding="utf-8") as fh:
+        data = json.load(fh)
+    assert data["nodes"], "JSON file should contain node data"
