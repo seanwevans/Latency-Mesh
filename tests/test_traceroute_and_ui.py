@@ -12,6 +12,7 @@ def test_run_traceroute_parses_output(monkeypatch):
         b" 1 10.0.0.1 12.3 ms\n",
         b" 2 * *\n",
         b" 3 8.8.8.8 34.5 ms\n",
+        b" 4 2001:4860:4860::8888 56.7 ms\n",
     ]
 
     class DummyStream:
@@ -43,7 +44,11 @@ def test_run_traceroute_parses_output(monkeypatch):
             pass
 
     result = asyncio.run(traceroute.run_traceroute("example", 1.0, 5, DummyLogger()))
-    assert result == [("10.0.0.1", 12.3), ("8.8.8.8", 34.5)]
+    assert result == [
+        ("10.0.0.1", 12.3),
+        ("8.8.8.8", 34.5),
+        ("2001:4860:4860::8888", 56.7),
+    ]
 
 
 def test_traceroute_worker_handles_success_and_errors(monkeypatch):

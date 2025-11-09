@@ -24,6 +24,9 @@ def add_trace(G: nx.Graph, hops: list[Hop]) -> None:
             delta = max(rtt - prev_rtt, 0.1)
             if not G.has_edge(prev_ip, ip):
                 G.add_edge(prev_ip, ip, weight=delta)
+            else:
+                edge = G[prev_ip][ip]
+                edge["weight"] = min(edge.get("weight", delta), delta)
 
 
 def compute_positions(G: nx.Graph) -> Position:

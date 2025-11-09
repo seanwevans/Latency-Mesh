@@ -1,4 +1,7 @@
 import ipaddress
+from unittest import mock
+
+import pytest
 
 from latencymesh import iptools
 
@@ -35,3 +38,22 @@ class TestGenerateLocalPool:
         assert len(pool_first) == 1
         network = ipaddress.ip_network("198.51.100.5/24", strict=False)
         assert pool_first[0] in {iptools.IPAddress(str(a)) for a in network}
+
+        with mock.patch("latencymesh.iptools.random.shuffle", lambda seq: None):
+            pool = iptools.generate_local_pool(seed_ips, prefix_len=24, max_per_seed=1)
+
+        assert pool == [iptools.IPAddress("198.51.100.1")]
+
+    def test_handles_large_ipv6_prefix_quickly(self):
+        seed_ips = ["2001:db8::1"]
+
+        with mock.patch("latencymesh.iptools.random.shuffle", lambda seq: None):
+            pool = iptools.generate_local_pool(seed_ips, prefix_len=64, max_per_seed=5)
+
+        assert pool == [
+            iptools.IPAddress("2001:db8::1"),
+            iptools.IPAddress("2001:db8::2"),
+            iptools.IPAddress("2001:db8::3"),
+            iptools.IPAddress("2001:db8::4"),
+            iptools.IPAddress("2001:db8::5"),
+        ]

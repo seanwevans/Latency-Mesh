@@ -33,6 +33,9 @@ def save_graph(G: nx.Graph, save_base: str) -> None:
         base = base[: -len(".json")]
     data: Dict[str, Any] = nx.node_link_data(G)
     json_path = f"{base}.json"
+    json_dir = os.path.dirname(json_path)
+    if json_dir:
+        os.makedirs(json_dir, exist_ok=True)
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(data, f)
     nx.write_gexf(G, f"{base}.gexf")
