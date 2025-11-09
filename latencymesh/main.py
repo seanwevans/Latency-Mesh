@@ -177,7 +177,10 @@ def parse_duration(expr: str) -> timedelta:
 
 
 def prune_graph(
-    graph_path: str, older_than: Optional[str], min_latency: Optional[float], output: Optional[str]
+    graph_path: str,
+    older_than: Optional[str],
+    min_latency: Optional[float],
+    output: Optional[str],
 ) -> str:
     resolved = resolve_graph_path(graph_path)
     if not os.path.exists(resolved):
@@ -230,14 +233,18 @@ def merge_graphs(graphs: Iterable[str], output: str) -> str:
                 if "rtt" in data:
                     existing["rtt"] = min(existing.get("rtt", data["rtt"]), data["rtt"])
                 if "last_seen" in data:
-                    existing["last_seen"] = max(existing.get("last_seen", ""), data["last_seen"])
+                    existing["last_seen"] = max(
+                        existing.get("last_seen", ""), data["last_seen"]
+                    )
             else:
                 merged.add_node(node, **data)
         for u, v, data in G.edges(data=True):
             if merged.has_edge(u, v):
                 existing = merged.edges[u, v]
                 if "weight" in data:
-                    existing["weight"] = min(existing.get("weight", data["weight"]), data["weight"])
+                    existing["weight"] = min(
+                        existing.get("weight", data["weight"]), data["weight"]
+                    )
             else:
                 merged.add_edge(u, v, **data)
 

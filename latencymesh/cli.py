@@ -12,9 +12,7 @@ def create_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    scan = subparsers.add_parser(
-        "scan", help="Perform an asynchronous traceroute scan"
-    )
+    scan = subparsers.add_parser("scan", help="Perform an asynchronous traceroute scan")
     scan.add_argument(
         "--save-base", default="internet_map", help="Base filename for output"
     )
@@ -142,4 +140,3 @@ def create_parser() -> argparse.ArgumentParser:
 def parse_args(argv):
     parser = create_parser()
     return parser.parse_args(argv)
-

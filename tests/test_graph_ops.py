@@ -18,7 +18,10 @@ class TestAddTrace:
 
         graph_ops.add_trace(graph, hops)
 
-        assert set(graph.nodes) == {graph_ops.IPAddress("203.0.113.1"), graph_ops.IPAddress("203.0.113.2")}
+        assert set(graph.nodes) == {
+            graph_ops.IPAddress("203.0.113.1"),
+            graph_ops.IPAddress("203.0.113.2"),
+        }
         assert graph.nodes[graph_ops.IPAddress("203.0.113.1")] == {
             "rtt": 10.0,
             "last_seen": mock.ANY,
@@ -63,7 +66,9 @@ class TestComputePositions:
             graph_ops.IPAddress("192.0.2.2"): math.pi / 2,
         }
 
-        with mock.patch("latencymesh.graph_ops.ip_angle", side_effect=lambda ip: fake_angles[ip]):
+        with mock.patch(
+            "latencymesh.graph_ops.ip_angle", side_effect=lambda ip: fake_angles[ip]
+        ):
             positions = graph_ops.compute_positions(graph)
 
         assert positions[graph_ops.IPAddress("192.0.2.1")] == (2.0, 0.0)

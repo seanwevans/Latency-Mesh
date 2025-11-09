@@ -18,7 +18,9 @@ def _layout_positions(G: nx.Graph, layout: str):
     return compute_positions(G)
 
 
-def draw_map(G, save_base, ax, *, layout: str = "radial", output_path: Optional[str] = None):
+def draw_map(
+    G, save_base, ax, *, layout: str = "radial", output_path: Optional[str] = None
+):
     pos = _layout_positions(G, layout)
     if ax is None:
         _, ax = plt.subplots(figsize=(8, 8))
