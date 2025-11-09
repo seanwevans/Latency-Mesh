@@ -49,13 +49,15 @@ def test_render_graph_and_export(tmp_path):
 
 
 def test_graph_stats_and_parsing(tmp_path):
-    make_graph(tmp_path)
+    graph = make_graph(tmp_path)
+    graph.add_node("2.2.2.2", rtt=0.0, last_seen=datetime.utcnow().isoformat())
+    save_graph(graph, str(tmp_path / "graph"))
     stats = main.graph_stats(str(tmp_path / "graph.json"))
-    assert stats["nodes"] == 2
+    assert stats["nodes"] == 3
     assert stats["edges"] == 1
-    assert stats["components"] == 1
-    assert stats["avg_degree"] == pytest.approx(1.0)
-    assert stats["avg_latency"] == pytest.approx(17.5)
+    assert stats["components"] == 2
+    assert stats["avg_degree"] == pytest.approx(2 / 3)
+    assert stats["avg_latency"] == pytest.approx(35 / 3)
 
     assert main.parse_duration("5m") == timedelta(minutes=5)
     assert main.parse_duration("10") == timedelta(seconds=10)
