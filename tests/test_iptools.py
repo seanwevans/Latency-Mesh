@@ -24,8 +24,12 @@ class TestGenerateLocalPool:
 
     def test_limits_addresses_per_seed(self):
         seed_ips = ["198.51.100.5"]
-        pool_first = iptools.generate_local_pool(seed_ips, prefix_len=24, max_per_seed=1)
-        pool_second = iptools.generate_local_pool(seed_ips, prefix_len=24, max_per_seed=1)
+        pool_first = iptools.generate_local_pool(
+            seed_ips, prefix_len=24, max_per_seed=1
+        )
+        pool_second = iptools.generate_local_pool(
+            seed_ips, prefix_len=24, max_per_seed=1
+        )
 
         assert pool_first == pool_second
         assert len(pool_first) == 1
