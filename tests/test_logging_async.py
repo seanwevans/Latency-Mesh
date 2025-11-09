@@ -109,7 +109,9 @@ def test_log_worker_reports_errors_and_flushes(monkeypatch):
             handlers.append(handler)
             return handler
 
-        monkeypatch.setattr(logging_async_mod.logging, "StreamHandler", fake_stream_handler)
+        monkeypatch.setattr(
+            logging_async_mod.logging, "StreamHandler", fake_stream_handler
+        )
 
         stderr_buffer = io.StringIO()
         monkeypatch.setattr(logging_async_mod.sys, "stderr", stderr_buffer)

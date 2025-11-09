@@ -61,7 +61,10 @@ def test_traceroute_worker_timeout_and_notify(monkeypatch):
         pending_ips: set[str] = set()
         stop_event = asyncio.Event()
         notify_calls: list[None] = []
-        success_counter = {"since_last_draw": 0, "notify": lambda: notify_calls.append(None)}
+        success_counter = {
+            "since_last_draw": 0,
+            "notify": lambda: notify_calls.append(None),
+        }
         counter_lock = asyncio.Lock()
 
         real_wait_for = asyncio.wait_for
