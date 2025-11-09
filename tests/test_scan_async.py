@@ -170,3 +170,63 @@ def test_scan_async_signal_handler_fallback(monkeypatch):
                 continue
 
     assert manual_calls, "Fallback signal handler should be registered"
+
+
+def test_scan_async_processes_full_pool(monkeypatch):
+    params = _build_params()
+
+    pool = [f"10.0.0.{i}" for i in range(1, 301)]
+
+    monkeypatch.setattr(main, "generate_local_pool", lambda *a: pool)
+    monkeypatch.setattr(main, "load_graph", lambda *_: nx.Graph())
+
+    async def fake_log_worker(queue, stop_event, level=None):
+        while not stop_event.is_set() or not queue.empty():
+            try:
+                await asyncio.wait_for(queue.get(), timeout=0.05)
+            except asyncio.TimeoutError:
+                continue
+            queue.task_done()
+
+    processed = []
+
+    async def fake_traceroute_worker(
+        worker_id,
+        G,
+        queue,
+        params,
+        seen_ips,
+        pending_ips,
+        stop_event,
+        success_counter,
+        counter_lock,
+        logger,
+    ):
+        while not stop_event.is_set():
+            try:
+                host = await asyncio.wait_for(queue.get(), timeout=0.05)
+            except asyncio.TimeoutError:
+                continue
+            processed.append(host)
+            pending_ips.discard(host)
+            queue.task_done()
+            async with counter_lock:
+                success_counter["since_last_draw"] = (
+                    success_counter.get("since_last_draw", 0) + 1
+                )
+            if len(processed) == len(pool):
+                stop_event.set()
+
+    async def fake_ui_manager(
+        G, save_base, ax, params, stop_event, success_counter, counter_lock
+    ):
+        await stop_event.wait()
+
+    monkeypatch.setattr(main, "log_worker", fake_log_worker)
+    monkeypatch.setattr(main, "traceroute_worker", fake_traceroute_worker)
+    monkeypatch.setattr(main, "ui_manager", fake_ui_manager)
+    monkeypatch.setattr(main, "save_graph", lambda G, save_base: None)
+
+    asyncio.run(main.scan_async(params))
+
+    assert sorted(processed) == sorted(pool)
