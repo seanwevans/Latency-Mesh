@@ -149,20 +149,24 @@ def test_serve_directory(monkeypatch, tmp_path):
 def test_main_dispatch(monkeypatch, tmp_path, command, patched, expected, capsys):
     graph = nx.Graph()
     save_graph(graph, str(tmp_path / "graph"))
-    monkeypatch.setattr(main, "parse_args", lambda _argv: SimpleNamespace(
-        command=command,
-        graph=str(tmp_path / "graph.json"),
-        layout="radial",
-        output=None,
-        format="csv",
-        graphs=[str(tmp_path / "graph.json")],
-        directory=str(tmp_path),
-        port=8000,
-        auto=False,
-        seeds=None,
-        older_than="1d",
-        min_latency=10.0,
-    ))
+    monkeypatch.setattr(
+        main,
+        "parse_args",
+        lambda _argv: SimpleNamespace(
+            command=command,
+            graph=str(tmp_path / "graph.json"),
+            layout="radial",
+            output=None,
+            format="csv",
+            graphs=[str(tmp_path / "graph.json")],
+            directory=str(tmp_path),
+            port=8000,
+            auto=False,
+            seeds=None,
+            older_than="1d",
+            min_latency=10.0,
+        ),
+    )
 
     actions = {
         "render_graph": lambda *a, **k: tmp_path / "render.svg",
@@ -181,6 +185,7 @@ def test_main_dispatch(monkeypatch, tmp_path, command, patched, expected, capsys
 def test_main_scan_and_errors(monkeypatch, capsys):
     params = SimpleNamespace(command="scan")
     monkeypatch.setattr(main, "parse_args", lambda _argv: params)
+
     def fake_run(coro):
         params.ran = coro
         coro.close()
@@ -209,4 +214,3 @@ def test_main_seed_command(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert "2.2.2.2" in captured.out
     assert "1.1.1.1" in captured.out
-

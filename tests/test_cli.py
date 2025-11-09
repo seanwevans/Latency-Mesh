@@ -3,7 +3,16 @@ from latencymesh import cli
 
 def test_parse_args_scan_mode():
     args = cli.parse_args(
-        ["scan", "--save-base", "map", "--workers", "2", "--seeds", "1.1.1.1", "8.8.8.8"]
+        [
+            "scan",
+            "--save-base",
+            "map",
+            "--workers",
+            "2",
+            "--seeds",
+            "1.1.1.1",
+            "8.8.8.8",
+        ]
     )
     assert args.command == "scan"
     assert args.workers == 2

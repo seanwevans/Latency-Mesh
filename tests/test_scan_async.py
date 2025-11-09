@@ -48,7 +48,9 @@ def test_scan_async_controls_workers(monkeypatch):
         assert host == "1.1.1.1"
         queue.task_done()
         async with counter_lock:
-            success_counter["since_last_draw"] = success_counter.get("since_last_draw", 0) + 1
+            success_counter["since_last_draw"] = (
+                success_counter.get("since_last_draw", 0) + 1
+            )
         stop_event.set()
 
     async def fake_ui_manager(

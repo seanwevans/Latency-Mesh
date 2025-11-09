@@ -134,7 +134,9 @@ def test_ui_manager_fixed_and_dynamic(monkeypatch):
         success_counter = {"since_last_draw": 0}
 
         task = asyncio.create_task(
-            ui.ui_manager(graph, "graph", None, params, stop_event, success_counter, counter_lock)
+            ui.ui_manager(
+                graph, "graph", None, params, stop_event, success_counter, counter_lock
+            )
         )
 
         await asyncio.sleep(0.05)
@@ -147,7 +149,9 @@ def test_ui_manager_fixed_and_dynamic(monkeypatch):
         stop_event = asyncio.Event()
         success_counter = {"since_last_draw": 0}
         task = asyncio.create_task(
-            ui.ui_manager(graph, "graph", None, params, stop_event, success_counter, counter_lock)
+            ui.ui_manager(
+                graph, "graph", None, params, stop_event, success_counter, counter_lock
+            )
         )
         await asyncio.sleep(0.02)
         success_counter["notify"]()
