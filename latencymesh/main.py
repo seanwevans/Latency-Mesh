@@ -48,7 +48,7 @@ async def scan_async(params):
     queue = asyncio.Queue()
     seen_ips, pending_ips = set(G.nodes()), set()
 
-    for ip in pool[: min(256, len(pool))]:
+    for ip in pool:
         await queue.put(ip)
         pending_ips.add(ip)
 
