@@ -112,7 +112,6 @@ async def scan_async(params):
             if max_traces_value <= 0:
                 stop_event.set()
 
-
     for s in (signal.SIGINT, signal.SIGTERM):
         try:
             loop.add_signal_handler(s, lambda s=s: stop_event.set())
@@ -207,6 +206,8 @@ def graph_stats(graph_path: str) -> dict:
         "avg_degree": avg_degree,
         "avg_latency": avg_latency,
     }
+
+
 def prune_graph(
     graph_path: str,
     older_than: Optional[str],

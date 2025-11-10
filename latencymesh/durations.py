@@ -42,4 +42,3 @@ def parse_duration(expr: str) -> timedelta:
     except ValueError as exc:  # pragma: no cover - defensive guard
         raise ValueError(f"Invalid duration: {expr}") from exc
     return timedelta(seconds=amount * units[unit])
-
