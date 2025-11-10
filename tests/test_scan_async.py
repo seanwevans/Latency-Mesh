@@ -1,4 +1,5 @@
 import asyncio
+from datetime import timedelta
 from types import SimpleNamespace
 
 import networkx as nx
@@ -19,6 +20,8 @@ def _build_params():
         timeout=1.0,
         max_hops=5,
         save_base="test_scan",
+        duration=None,
+        max_traces=None,
     )
 
 
@@ -223,3 +226,145 @@ def test_scan_async_processes_full_pool(monkeypatch):
     asyncio.run(main.scan_async(params))
 
     assert sorted(processed) == sorted(pool)
+
+
+def test_scan_async_honors_duration_limit(monkeypatch):
+    params = _build_params()
+    params.duration = timedelta(seconds=5)
+
+    pool = ["1.1.1.1", "1.1.1.2"]
+
+    monkeypatch.setattr(main, "generate_local_pool", lambda *a: pool)
+    monkeypatch.setattr(main, "load_graph", lambda *_: nx.Graph())
+
+    async def fake_log_worker(queue, stop_event, level=None):
+        while not stop_event.is_set() or not queue.empty():
+            try:
+                await asyncio.wait_for(queue.get(), timeout=0.05)
+            except asyncio.TimeoutError:
+                continue
+            queue.task_done()
+
+    class LoopProxy:
+        def __init__(self, loop):
+            self.loop = loop
+            self.scheduled = []
+            self.handles = []
+
+        def call_later(self, delay, callback, *args):
+            self.scheduled.append(delay)
+
+            handle = self.loop.call_soon(callback, *args)
+
+            class _Handle:
+                def __init__(self, inner):
+                    self._inner = inner
+                    self.cancelled = False
+
+                def cancel(self):
+                    self.cancelled = True
+                    try:
+                        self._inner.cancel()
+                    except Exception:
+                        pass
+
+            wrapper = _Handle(handle)
+            self.handles.append(wrapper)
+            return wrapper
+
+        def __getattr__(self, name):
+            return getattr(self.loop, name)
+
+    proxy_holder = {}
+
+    real_get_running_loop = asyncio.get_running_loop
+
+    def fake_get_running_loop():
+        loop = real_get_running_loop()
+        proxy = LoopProxy(loop)
+        proxy_holder["loop"] = proxy
+        return proxy
+
+    async def passive_worker(
+        worker_id,
+        G,
+        queue,
+        params,
+        seen_ips,
+        pending_ips,
+        stop_event,
+        success_counter,
+        counter_lock,
+        logger,
+    ):
+        try:
+            while not stop_event.is_set():
+                try:
+                    host = await asyncio.wait_for(queue.get(), timeout=0.05)
+                except asyncio.TimeoutError:
+                    continue
+                pending_ips.discard(host)
+                queue.task_done()
+        except asyncio.CancelledError:
+            pass
+
+    async def fake_ui_manager(
+        G, save_base, ax, params, stop_event, success_counter, counter_lock
+    ):
+        await stop_event.wait()
+
+    monkeypatch.setattr(main, "log_worker", fake_log_worker)
+    monkeypatch.setattr(main, "traceroute_worker", passive_worker)
+    monkeypatch.setattr(main, "ui_manager", fake_ui_manager)
+    monkeypatch.setattr(main, "save_graph", lambda G, save_base: None)
+    monkeypatch.setattr(main.asyncio, "get_running_loop", fake_get_running_loop)
+
+    asyncio.run(main.scan_async(params))
+
+    proxy = proxy_holder["loop"]
+    assert proxy.scheduled == [5]
+    assert proxy.handles and all(handle.cancelled for handle in proxy.handles)
+
+
+def test_scan_async_honors_max_traces(monkeypatch):
+    params = _build_params()
+    params.max_traces = 2
+
+    pool = [f"10.0.0.{i}" for i in range(1, 5)]
+
+    monkeypatch.setattr(main, "generate_local_pool", lambda *a: pool)
+    monkeypatch.setattr(main, "load_graph", lambda *_: nx.Graph())
+
+    async def fake_log_worker(queue, stop_event, level=None):
+        while not stop_event.is_set() or not queue.empty():
+            try:
+                await asyncio.wait_for(queue.get(), timeout=0.05)
+            except asyncio.TimeoutError:
+                continue
+            queue.task_done()
+
+    processed = []
+
+    async def fake_sleep(_delay):
+        return None
+
+    from latencymesh import traceroute as traceroute_mod
+
+    async def stub_traceroute(host, *_args, **_kwargs):
+        processed.append(host)
+        return [(host, 1.0)]
+
+    async def stop_event_waiter(
+        G, save_base, ax, params, stop_event, success_counter, counter_lock
+    ):
+        await stop_event.wait()
+
+    monkeypatch.setattr(traceroute_mod, "run_traceroute", stub_traceroute)
+    monkeypatch.setattr(traceroute_mod.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(main, "log_worker", fake_log_worker)
+    monkeypatch.setattr(main, "ui_manager", stop_event_waiter)
+    monkeypatch.setattr(main, "save_graph", lambda G, save_base: None)
+
+    asyncio.run(main.scan_async(params))
+
+    assert processed == pool[: params.max_traces]

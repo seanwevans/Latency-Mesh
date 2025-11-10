@@ -19,7 +19,7 @@ lm --help
 
 The CLI exposes several subcommands that operate on live traceroute scans and stored graphs.
 
-- `lm scan` — launch an asynchronous traceroute sweep. Results are written to JSON graph files that can be visualized or exported later. Use `--no-display` for headless environments, and adjust concurrency/limits with flags such as `--workers`, `--pps`, and `--max-hops`.
+- `lm scan` — launch an asynchronous traceroute sweep. Results are written to JSON graph files that can be visualized or exported later. Use `--no-display` for headless environments, adjust concurrency with flags such as `--workers`, `--pps`, and `--max-hops`, or stop automatically with `--duration` / `--max-traces`.
 - `lm show` — render a saved graph (`.json`) using layouts like `radial`, `spring`, or `planar`. An SVG snapshot is produced when `--output` is supplied.
 - `lm export` — convert a stored graph to `gexf` or `csv` for further analysis.
 - `lm stats` — summarize hop counts, latencies, and metadata in a graph file.

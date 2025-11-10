@@ -5,7 +5,7 @@ import inspect
 import os
 import signal
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from typing import Iterable, List, Optional
@@ -15,6 +15,7 @@ import networkx as nx
 import uvicorn
 
 from .cli import DEFAULT_SEEDS, parse_args
+from .durations import parse_duration
 from .io_graph import load_graph, resolve_graph_path, save_graph
 from .iptools import generate_local_pool
 from .logging_async import get_logger, log_worker
@@ -57,7 +58,7 @@ async def scan_async(params, graph=None, update_queue=None, graph_lock=None):
         await queue.put(ip)
         pending_ips.add(ip)
 
-    success_counter, counter_lock = {"since_last_draw": 0}, asyncio.Lock()
+    success_counter, counter_lock = {"since_last_draw": 0, "total": 0}, asyncio.Lock()
 
     try:
         worker_signature = inspect.signature(traceroute_worker)
@@ -112,10 +113,32 @@ async def scan_async(params, graph=None, update_queue=None, graph_lock=None):
         )
 
     loop = asyncio.get_running_loop()
+    timer_handles = []
     manual_signal_handlers = []
 
     def _manual_stop_handler(signum, frame):
         stop_event.set()
+
+    duration_value = getattr(params, "duration", None)
+    if isinstance(duration_value, str) and duration_value:
+        duration_value = parse_duration(duration_value)
+        params.duration = duration_value
+    if duration_value is not None:
+        seconds = max(duration_value.total_seconds(), 0)
+        timer_handles.append(loop.call_later(seconds, stop_event.set))
+
+    max_traces_value = getattr(params, "max_traces", None)
+    if max_traces_value is None:
+        params.max_traces = None
+    else:
+        try:
+            max_traces_value = int(max_traces_value)
+        except (TypeError, ValueError):
+            params.max_traces = None
+        else:
+            params.max_traces = max_traces_value
+            if max_traces_value <= 0:
+                stop_event.set()
 
     for s in (signal.SIGINT, signal.SIGTERM):
         try:
@@ -134,6 +157,11 @@ async def scan_async(params, graph=None, update_queue=None, graph_lock=None):
     try:
         await stop_event.wait()
     finally:
+        for handle in timer_handles:
+            try:
+                handle.cancel()
+            except Exception:
+                pass
         for sig, previous in manual_signal_handlers:
             try:
                 signal.signal(sig, previous)
@@ -296,23 +324,6 @@ def graph_stats(graph_path: str) -> dict:
         "avg_degree": avg_degree,
         "avg_latency": avg_latency,
     }
-
-
-def parse_duration(expr: str) -> timedelta:
-    units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
-    expr = expr.strip().lower()
-    if not expr:
-        raise ValueError("Duration expression cannot be empty")
-    value = expr[:-1]
-    unit = expr[-1]
-    if unit not in units:
-        value = expr
-        unit = "s"
-    try:
-        amount = float(value)
-    except ValueError as exc:
-        raise ValueError(f"Invalid duration: {expr}") from exc
-    return timedelta(seconds=amount * units[unit])
 
 
 def prune_graph(

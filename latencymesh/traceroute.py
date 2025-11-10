@@ -82,6 +82,13 @@ async def traceroute_worker(
                 success_counter["since_last_draw"] = (
                     success_counter.get("since_last_draw", 0) + 1
                 )
+                if "total" in success_counter:
+                    success_counter["total"] = success_counter.get("total", 0) + 1
+                    total_now = success_counter["total"]
+            if total_now is not None:
+                limit = getattr(params, "max_traces", None)
+                if limit is not None and limit > 0 and total_now >= limit:
+                    stop_event.set()
             if "notify" in success_counter:
                 success_counter["notify"]()
             if update_queue is not None:

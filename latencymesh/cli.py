@@ -1,6 +1,8 @@
 import argparse
 from typing import List
 
+from .durations import parse_duration
+
 
 DEFAULT_SEEDS: List[str] = ["192.168.1.1", "1.1.1.1", "8.8.8.8"]
 
@@ -46,7 +48,17 @@ def add_scan_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--no-display", action="store_true", help="Run headless (no live plot)"
     )
-    parser.add_argument(
+    scan.add_argument(
+        "--duration",
+        type=parse_duration,
+        help="Stop the scan after the given duration (e.g. 10m, 2h)",
+    )
+    scan.add_argument(
+        "--max-traces",
+        type=int,
+        help="Stop after this many successful traceroutes have completed",
+    )
+    scan.add_argument(
         "--seeds",
         nargs="+",
         metavar="IP",
