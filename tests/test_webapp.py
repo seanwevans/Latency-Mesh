@@ -187,11 +187,13 @@ async def test_stream_generator_emits_heartbeat_and_shutdown(monkeypatch):
     graph.add_node("b")
     graph.add_edge("a", "b")
     lock = asyncio.Lock()
-    broadcast = StubBroadcast([
-        asyncio.TimeoutError(),
-        1,
-        None,
-    ])
+    broadcast = StubBroadcast(
+        [
+            asyncio.TimeoutError(),
+            1,
+            None,
+        ]
+    )
     app = create_app(graph, lock, broadcast)
 
     transport = ASGITransport(app=app)
