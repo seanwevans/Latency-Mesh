@@ -1,4 +1,10 @@
-import asyncio, random, re, ipaddress
+import asyncio
+import ipaddress
+import random
+import re
+import time
+from asyncio import QueueEmpty, QueueFull
+
 from .graph_ops import add_trace
 
 
@@ -46,6 +52,8 @@ async def traceroute_worker(
     success_counter,
     counter_lock,
     logger,
+    graph_lock=None,
+    update_queue=None,
 ):
     pps = max(0.001, float(params.pps))
     delay_between = 1.0 / pps
@@ -65,8 +73,11 @@ async def traceroute_worker(
             await asyncio.sleep(delay_between)
             continue
         if hops:
-            add_trace(G, hops)
-            total_now = None
+            if graph_lock is not None:
+                async with graph_lock:
+                    add_trace(G, hops)
+            else:
+                add_trace(G, hops)
             async with counter_lock:
                 success_counter["since_last_draw"] = (
                     success_counter.get("since_last_draw", 0) + 1
@@ -80,6 +91,19 @@ async def traceroute_worker(
                     stop_event.set()
             if "notify" in success_counter:
                 success_counter["notify"]()
+            if update_queue is not None:
+                payload = {"type": "graph", "timestamp": time.time()}
+                try:
+                    update_queue.put_nowait(payload)
+                except QueueFull:
+                    try:
+                        update_queue.get_nowait()
+                    except QueueEmpty:
+                        pass
+                    try:
+                        update_queue.put_nowait(payload)
+                    except QueueFull:
+                        pass
             for ip, _ in hops:
                 if ip not in seen_ips:
                     seen_ips.add(ip)

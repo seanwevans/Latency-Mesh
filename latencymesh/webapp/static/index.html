@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>LatencyMesh Live Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js" integrity="sha512-KFf9T0S7imLwY4L9O+F7tUSiDpeBkAPqtW7CXmJL7DM2HTOE3t+3n3ZH5qam3MSzMTsFh/Veh86/wS5ry/+zkw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  </head>
+  <body>
+    <header>
+      <h1>LatencyMesh</h1>
+      <p>Streaming view of the current topology scan.</p>
+    </header>
+    <main>
+      <section class="stats">
+        <div><span class="label">Nodes</span><span id="stat-nodes">0</span></div>
+        <div><span class="label">Edges</span><span id="stat-edges">0</span></div>
+        <div><span class="label">Avg. degree</span><span id="stat-degree">0</span></div>
+        <div><span class="label">Avg. latency</span><span id="stat-latency">0 ms</span></div>
+        <div><span class="label">Last update</span><span id="stat-updated">never</span></div>
+      </section>
+      <section class="graph">
+        <svg id="graph" viewBox="0 0 800 600"></svg>
+      </section>
+    </main>
+    <footer>
+      <p>
+        API endpoints available at
+        <code>/api/graph</code>, <code>/api/stats</code>, and <code>/api/stream</code>.
+      </p>
+    </footer>
+    <script src="/static/app.js" type="module"></script>
+  </body>
+</html>

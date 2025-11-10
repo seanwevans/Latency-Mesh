@@ -3,7 +3,14 @@ from .viz import draw_map
 
 
 async def ui_manager(
-    G, save_base, ax, params, stop_event, success_counter, counter_lock
+    G,
+    save_base,
+    ax,
+    params,
+    stop_event,
+    success_counter,
+    counter_lock,
+    graph_lock=None,
 ):
     event = asyncio.Event()
 
@@ -21,12 +28,21 @@ async def ui_manager(
                     )
                     break
                 except asyncio.TimeoutError:
-                    draw_map(
-                        G,
-                        save_base,
-                        ax,
-                        layout=getattr(params, "layout", "radial"),
-                    )
+                    if graph_lock is not None:
+                        async with graph_lock:
+                            draw_map(
+                                G,
+                                save_base,
+                                ax,
+                                layout=getattr(params, "layout", "radial"),
+                            )
+                    else:
+                        draw_map(
+                            G,
+                            save_base,
+                            ax,
+                            layout=getattr(params, "layout", "radial"),
+                        )
                     async with counter_lock:
                         success_counter["since_last_draw"] = 0
             else:
@@ -35,18 +51,36 @@ async def ui_manager(
                 async with counter_lock:
                     count = success_counter.get("since_last_draw", 0)
                 if count >= max(1, int(params.update_count)):
-                    draw_map(
-                        G,
-                        save_base,
-                        ax,
-                        layout=getattr(params, "layout", "radial"),
-                    )
+                    if graph_lock is not None:
+                        async with graph_lock:
+                            draw_map(
+                                G,
+                                save_base,
+                                ax,
+                                layout=getattr(params, "layout", "radial"),
+                            )
+                    else:
+                        draw_map(
+                            G,
+                            save_base,
+                            ax,
+                            layout=getattr(params, "layout", "radial"),
+                        )
                     async with counter_lock:
                         success_counter["since_last_draw"] = 0
     finally:
-        draw_map(
-            G,
-            save_base,
-            ax,
-            layout=getattr(params, "layout", "radial"),
-        )
+        if graph_lock is not None:
+            async with graph_lock:
+                draw_map(
+                    G,
+                    save_base,
+                    ax,
+                    layout=getattr(params, "layout", "radial"),
+                )
+        else:
+            draw_map(
+                G,
+                save_base,
+                ax,
+                layout=getattr(params, "layout", "radial"),
+            )
