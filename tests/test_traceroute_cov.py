@@ -31,7 +31,11 @@ async def _run_worker_for_full_coverage(monkeypatch):
     pending_ips: set[str] = set()
     stop_event = asyncio.Event()
     notifications: list[None] = []
-    success_counter = {"since_last_draw": 0, "total": 0, "notify": lambda: notifications.append(None)}
+    success_counter = {
+        "since_last_draw": 0,
+        "total": 0,
+        "notify": lambda: notifications.append(None),
+    }
     counter_lock = asyncio.Lock()
     graph = nx.Graph()
     graph_lock = asyncio.Lock()
