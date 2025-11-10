@@ -34,5 +34,14 @@ dev = [
   "httpx>=0.27",
 ]
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.packages.find]
 include = ["latencymesh", "latencymesh.*"]
+
+[tool.setuptools.package-data]
+latencymesh = [
+  "webapp/static/*",
+  "webapp/static/**/*",
+]
