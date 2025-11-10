@@ -104,7 +104,8 @@ def create_app(
 ) -> FastAPI:
     if not STATIC_DIR.exists():
         raise RuntimeError(
-            "Static assets missing. Expected directory at " f"{STATIC_DIR}"  # pragma: no cover
+            "Static assets missing. Expected directory at "
+            f"{STATIC_DIR}"  # pragma: no cover
         )
 
     app = FastAPI(title="LatencyMesh Web API")
@@ -122,7 +123,9 @@ def create_app(
 
     @app.get("/api/graph")
     async def api_graph() -> JSONResponse:
-        snapshot = await _graph_snapshot(app.state.graph, app.state.graph_lock, broadcast.version)
+        snapshot = await _graph_snapshot(
+            app.state.graph, app.state.graph_lock, broadcast.version
+        )
         return JSONResponse(snapshot)
 
     @app.get("/api/stats")
@@ -135,7 +138,9 @@ def create_app(
     async def api_stream() -> StreamingResponse:
         async def event_generator():
             version = broadcast.version
-            snapshot = await _graph_snapshot(app.state.graph, app.state.graph_lock, version)
+            snapshot = await _graph_snapshot(
+                app.state.graph, app.state.graph_lock, version
+            )
             yield _format_sse(snapshot)
             heartbeat = 15.0
             while True:

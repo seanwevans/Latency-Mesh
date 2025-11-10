@@ -174,7 +174,9 @@ async def scan_async(params, graph=None, update_queue=None, graph_lock=None):
         print("[exit] done.")
 
 
-async def _forward_graph_updates(update_queue: asyncio.Queue, broadcast: GraphBroadcast):
+async def _forward_graph_updates(
+    update_queue: asyncio.Queue, broadcast: GraphBroadcast
+):
     try:
         while True:
             message = await update_queue.get()
