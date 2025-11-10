@@ -18,6 +18,9 @@ dependencies = [
   "uvicorn[standard]>=0.23",
 ]
 
+[project.scripts]
+lm = "latencymesh.main:main"
+
 [project.optional-dependencies]
 test = [
   "pytest>=7.0",
