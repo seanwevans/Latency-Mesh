@@ -48,17 +48,17 @@ def add_scan_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--no-display", action="store_true", help="Run headless (no live plot)"
     )
-    scan.add_argument(
+    parser.add_argument(
         "--duration",
         type=parse_duration,
         help="Stop the scan after the given duration (e.g. 10m, 2h)",
     )
-    scan.add_argument(
+    parser.add_argument(
         "--max-traces",
         type=int,
         help="Stop after this many successful traceroutes have completed",
     )
-    scan.add_argument(
+    parser.add_argument(
         "--seeds",
         nargs="+",
         metavar="IP",
