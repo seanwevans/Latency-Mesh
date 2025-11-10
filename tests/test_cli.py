@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from latencymesh import cli
 
 
@@ -12,11 +14,18 @@ def test_parse_args_scan_mode():
             "--seeds",
             "1.1.1.1",
             "8.8.8.8",
+            "--duration",
+            "5m",
+            "--max-traces",
+            "42",
         ]
     )
     assert args.command == "scan"
     assert args.workers == 2
     assert args.seeds == ["1.1.1.1", "8.8.8.8"]
+    assert isinstance(args.duration, timedelta)
+    assert args.duration.total_seconds() == 300
+    assert args.max_traces == 42
 
     args = cli.parse_args(["scan", "extra1", "extra2"])
     assert args.extra_seeds == ["extra1", "extra2"]
