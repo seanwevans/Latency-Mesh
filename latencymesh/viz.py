@@ -23,8 +23,11 @@ def draw_map(
     G, save_base, ax, *, layout: str = "radial", output_path: Optional[str] = None
 ):
     pos = _layout_positions(G, layout)
-    if ax is None:
-        _, ax = plt.subplots(figsize=(8, 8))
+    created_ax = ax is None
+    if created_ax:
+        fig, ax = plt.subplots(figsize=(8, 8))
+    else:
+        fig = ax.figure
     ax.clear()
     ax.set_title("LatencyMesh (Live)")
     ax.axis("equal")
@@ -47,5 +50,8 @@ def draw_map(
     if target:
         target_path = Path(target).expanduser().resolve()
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(target_path)
-    plt.pause(0.001)
+        fig.savefig(target_path)
+    if plt.isinteractive():
+        plt.pause(0.001)
+    if created_ax:
+        plt.close(fig)
