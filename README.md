@@ -26,7 +26,27 @@ The CLI exposes several subcommands that operate on live traceroute scans and st
 - `lm prune` — drop stale or low-quality nodes (e.g., `--older-than 7d`).
 - `lm merge` — combine multiple graph snapshots into a single mesh.
 - `lm seed` — list default seed IPs or augment them with manual entries.
-- `lm serve` — serve the current directory via HTTP for sharing generated artifacts.
+- `lm serve` — launch the asynchronous web API and D3.js dashboard (see below).
+
+## 🌐 Web interface
+
+`lm serve` starts the FastAPI-powered control plane together with the live D3 visualization. The command reuses the scanning
+flags from `lm scan`, so you can control concurrency (`--workers`), rate limits (`--pps`), and the output base name (`--save-base`).
+
+```bash
+lm serve --host 0.0.0.0 --port 8000 --workers 8 --pps 2.0
+```
+
+While the scan runs, the server exposes:
+
+- `GET /` — the bundled dashboard (served from `latencymesh/webapp/static/`).
+- `GET /api/graph` — a JSON snapshot containing the nodes and edges of the current graph.
+- `GET /api/stats` — aggregate metrics (node/edge counts, average degree, latency) with the current version number.
+- `GET /api/stream` — a server-sent events (SSE) channel that streams incremental graph snapshots as `scan_async` discovers
+  new paths.
+
+Each update reuses the in-memory networkx graph; the async workers broadcast through an internal queue so connected clients
+stay in sync without polling.
 
 ## 🧱 Build instructions
 

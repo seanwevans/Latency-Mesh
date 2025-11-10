@@ -1,5 +1,7 @@
 import asyncio
+from asyncio import QueueEmpty, QueueFull
 import csv
+import inspect
 import os
 import signal
 import sys
@@ -10,6 +12,7 @@ from typing import Iterable, List, Optional
 
 import matplotlib.pyplot as plt
 import networkx as nx
+import uvicorn
 
 from .cli import DEFAULT_SEEDS, parse_args
 from .io_graph import load_graph, resolve_graph_path, save_graph
@@ -18,9 +21,10 @@ from .logging_async import get_logger, log_worker
 from .traceroute import traceroute_worker
 from .ui import ui_manager
 from .viz import draw_map
+from .webapp import GraphBroadcast, create_app
 
 
-async def scan_async(params):
+async def scan_async(params, graph=None, update_queue=None, graph_lock=None):
     seeds = list(params.seeds or [])
     if params.extra_seeds:
         seeds.extend(params.extra_seeds)
@@ -38,7 +42,8 @@ async def scan_async(params):
     log_task = asyncio.create_task(log_worker(log_queue, stop_event))
     logger = get_logger(log_queue)
 
-    G = load_graph(params.save_base)
+    G = graph if graph is not None else load_graph(params.save_base)
+    graph_lock = graph_lock or asyncio.Lock()
     if not params.no_display:
         plt.ion()
     ax = None
@@ -54,6 +59,18 @@ async def scan_async(params):
 
     success_counter, counter_lock = {"since_last_draw": 0}, asyncio.Lock()
 
+    try:
+        worker_signature = inspect.signature(traceroute_worker)
+    except (TypeError, ValueError):  # pragma: no cover - defensive fallback
+        worker_signature = None
+
+    worker_kwargs = {}
+    if worker_signature:
+        if "graph_lock" in worker_signature.parameters:
+            worker_kwargs["graph_lock"] = graph_lock
+        if "update_queue" in worker_signature.parameters:
+            worker_kwargs["update_queue"] = update_queue
+
     workers = [
         asyncio.create_task(
             traceroute_worker(
@@ -67,21 +84,32 @@ async def scan_async(params):
                 success_counter,
                 counter_lock,
                 logger,
+                **worker_kwargs,
             )
         )
         for i in range(params.workers)
     ]
-    ui_task = asyncio.create_task(
-        ui_manager(
-            G,
-            params.save_base,
-            None if params.no_display else ax,
-            params,
-            stop_event,
-            success_counter,
-            counter_lock,
+    ui_task = None
+    if not params.no_display:
+        try:
+            ui_signature = inspect.signature(ui_manager)
+        except (TypeError, ValueError):  # pragma: no cover - defensive fallback
+            ui_signature = None
+        ui_kwargs = {}
+        if ui_signature and "graph_lock" in ui_signature.parameters:
+            ui_kwargs["graph_lock"] = graph_lock
+        ui_task = asyncio.create_task(
+            ui_manager(
+                G,
+                params.save_base,
+                ax,
+                params,
+                stop_event,
+                success_counter,
+                counter_lock,
+                **ui_kwargs,
+            )
         )
-    )
 
     loop = asyncio.get_running_loop()
     manual_signal_handlers = []
@@ -111,17 +139,105 @@ async def scan_async(params):
                 signal.signal(sig, previous)
             except (ValueError, AttributeError):
                 pass
-        for t in [*workers, ui_task]:
+        tasks = [*workers]
+        if ui_task:
+            tasks.append(ui_task)
+        for t in tasks:
             t.cancel()
-        await asyncio.gather(*workers, ui_task, return_exceptions=True)
-        save_graph(G, params.save_base)
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        try:
+            async with graph_lock:
+                save_graph(G, params.save_base)
+        except RuntimeError:
+            # If the event loop is closing, fall back to an unlocked save
+            save_graph(G, params.save_base)
         if ax:
             plt.ioff()
             plt.close("all")
         stop_event.set()
         await log_queue.join()
         log_task.cancel()
+        if update_queue is not None:
+            sentinel = {"type": "shutdown"}
+            try:
+                update_queue.put_nowait(sentinel)
+            except QueueFull:
+                try:
+                    update_queue.get_nowait()
+                except QueueEmpty:
+                    pass
+                try:
+                    update_queue.put_nowait(sentinel)
+                except QueueFull:
+                    pass
         print("[exit] done.")
+
+
+async def _forward_graph_updates(update_queue: asyncio.Queue, broadcast: GraphBroadcast):
+    try:
+        while True:
+            message = await update_queue.get()
+            if isinstance(message, dict) and message.get("type") == "shutdown":
+                broadcast.close()
+                break
+            broadcast.notify()
+    except asyncio.CancelledError:  # pragma: no cover - cooperative cancellation
+        raise
+
+
+async def serve_async(params):
+    params.no_display = True
+    host = getattr(params, "host", "0.0.0.0")
+    port = getattr(params, "port", 8000)
+
+    G = load_graph(params.save_base)
+    graph_lock = asyncio.Lock()
+    update_queue: asyncio.Queue = asyncio.Queue(maxsize=1)
+    broadcast = GraphBroadcast()
+
+    app = create_app(G, graph_lock, broadcast)
+    config = uvicorn.Config(app, host=host, port=port, loop="asyncio", log_level="info")
+    server = uvicorn.Server(config)
+
+    forwarder = asyncio.create_task(_forward_graph_updates(update_queue, broadcast))
+    scan_task = asyncio.create_task(
+        scan_async(params, graph=G, update_queue=update_queue, graph_lock=graph_lock)
+    )
+
+    try:
+        await server.serve()
+    finally:
+        if not scan_task.done():
+            scan_task.cancel()
+        await asyncio.gather(scan_task, return_exceptions=True)
+        sentinel = {"type": "shutdown"}
+        try:
+            update_queue.put_nowait(sentinel)
+        except QueueFull:
+            try:
+                update_queue.get_nowait()
+            except QueueEmpty:
+                pass
+            try:
+                update_queue.put_nowait(sentinel)
+            except QueueFull:
+                pass
+        await forwarder
+
+
+def serve_directory(directory: str, port: int) -> None:
+    if not os.path.isdir(directory):
+        raise FileNotFoundError(f"Directory not found: {directory}")
+    handler = partial(SimpleHTTPRequestHandler, directory=directory)
+    httpd = ThreadingHTTPServer(("", port), handler)
+    print(f"[serve] Serving {os.path.abspath(directory)} on http://0.0.0.0:{port}")
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\n[serve] shutting down")
+    finally:
+        httpd.server_close()
 
 
 def render_graph(graph_path: str, layout: str, output: Optional[str]) -> str:
@@ -309,20 +425,6 @@ def auto_seeds() -> List[str]:
     return seeds
 
 
-def serve_directory(directory: str, port: int) -> None:
-    if not os.path.isdir(directory):
-        raise FileNotFoundError(f"Directory not found: {directory}")
-    handler = partial(SimpleHTTPRequestHandler, directory=directory)
-    httpd = ThreadingHTTPServer(("", port), handler)
-    print(f"[serve] Serving {os.path.abspath(directory)} on http://0.0.0.0:{port}")
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\n[serve] shutting down")
-    finally:
-        httpd.server_close()
-
-
 def main(argv: Optional[List[str]] = None):
     params = parse_args(argv or sys.argv[1:])
     try:
@@ -361,7 +463,16 @@ def main(argv: Optional[List[str]] = None):
                     print(seed)
                     seen.add(seed)
         elif params.command == "serve":
-            serve_directory(params.directory, params.port)
+            legacy_directory = getattr(params, "directory", None)
+            if legacy_directory is None:
+                legacy_directory = getattr(params, "legacy_directory", None)
+            if legacy_directory is not None:
+                serve_directory(legacy_directory, params.port)
+            else:
+                try:
+                    asyncio.run(serve_async(params))
+                except KeyboardInterrupt:
+                    print("\n[interrupt] server exiting…")
         else:
             raise ValueError(f"Unknown command: {params.command}")
     except FileNotFoundError as exc:
