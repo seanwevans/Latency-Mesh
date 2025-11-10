@@ -72,6 +72,7 @@ async def traceroute_worker(
             queue.task_done()
             await asyncio.sleep(delay_between)
             continue
+        total_now = None
         if hops:
             if graph_lock is not None:
                 async with graph_lock:

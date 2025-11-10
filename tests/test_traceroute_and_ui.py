@@ -113,12 +113,13 @@ def test_traceroute_worker_timeout_and_notify(monkeypatch):
 
         await worker
 
-        return notify_calls, success_counter, seen_ips
+        return notify_calls, success_counter, seen_ips, stop_event.is_set()
 
-    notify_calls, success_counter, seen_ips = asyncio.run(runner())
+    notify_calls, success_counter, seen_ips, stop_event_set = asyncio.run(runner())
     assert notify_calls
     assert success_counter["since_last_draw"] >= 2
     assert "1.1.1.1" in seen_ips
+    assert not stop_event_set
 
 
 def test_traceroute_worker_handles_success_and_errors(monkeypatch):
